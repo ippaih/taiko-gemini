@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>太鼓のジェミニ v42 - 全デバイス対応版</title>
+    <style>
+        :root { 
+            --don-color: #ff4081; 
+            --kat-color: #40c4ff; 
+            --roll-color: #ffeb3b; 
+            --bg-main: #f7e600; 
+            --bg-sub: #e9de00;
+        }
+        /* 外側の余白と背景 */
+        body { background: var(--bg-sub); display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: 'Hiragino Kaku Gothic Pro', sans-serif; overflow: hidden; color: #333; touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; transition: background 0.3s; }
+        
+        /* スケーリング用のラッパー：ここが魔法のポイント */
+        #scaleWrapper { transform-origin: center center; display: flex; align-items: center; justify-content: center; width: 1280px; height: 720px; }
+
+        #gameContainer { position: relative; width: 1280px; height: 720px; background: var(--bg-main); border: 5px solid #333; box-shadow: 0 0 50px rgba(0,0,0,0.3); overflow: hidden; transition: background 0.3s; }
+        
+        #titleBadge { position: absolute; top: 10px; left: 10px; background: linear-gradient(45deg, #ffd700, #ffeb3b); color: #333; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 18px; border: 2px solid #333; display: none; z-index: 100; }
+        .screen { position: absolute; width: 100%; height: 100%; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 50; }
+        #titleScreen { display: flex; background: radial-gradient(#fff, transparent); }
+        .logo { font-size: 80px; color: var(--don-color); text-shadow: 4px 4px 0 #fff; margin-bottom: 30px; cursor: pointer; }
+        .menu-btn { padding: 12px 30px; font-size: 20px; cursor: pointer; background: var(--don-color); color: white; border: none; border-radius: 50px; transition: 0.2s; min-width: 250px; margin: 5px; font-weight: bold; outline: none; position: relative; z-index: 60; }
+        .menu-btn:hover { transform: scale(1.05); background: #ff1a6b; }
+        .ai-btn { background: #673ab7; }
+        .auto-btn { background: #2196f3; }
+        .opt-btn { background: #4caf50; }
+        .del-btn { background: #f44336; font-size: 14px; margin-top: 20px; }
+        
+        #optionScreen { background: rgba(0,0,0,0.95); color: white; z-index: 200; overflow-y: auto; }
+        .opt-container { display:flex; gap:20px; align-items: flex-start; max-width: 1100px; }
+        #rankingBox { background: white; color: #333; padding: 25px; border-radius: 15px; width: 450px; max-height: 500px; overflow-y: auto; }
+        .rank-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold; }
+        
+        .post-btn { background: #000; color: #fff; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: bold; transition: opacity 0.2s; }
+        .post-btn:hover { opacity: 0.8; }
+        
+        .color-picker { display: flex; gap: 10px; margin: 15px 0; justify-content: center; flex-wrap: wrap; }
+        .color-dot { width: 40px; height: 40px; border-radius: 50%; border: 3px solid white; cursor: pointer; transition: transform 0.2s; }
+        
+        kbd { background: #eee; border-radius: 3px; border: 1px solid #b4b4b4; color: #333; display: inline-block; padding: 2px 6px; font-weight: bold; }
+        #selectScreen { background: transparent; }
+        .selection-area { display: flex; gap: 20px; max-height: 420px; width: 95%; justify-content: center; }
+        #songList, #diffList { overflow-y: auto; padding: 10px; border: 2px solid #333; background: #fff; border-radius: 10px; width: 400px; }
+        .item { padding: 12px 20px; background: white; border: 2px solid #ddd; border-radius: 10px; cursor: pointer; font-size: 18px; font-weight: bold; margin-bottom: 8px; color: #333; }
+        .item.selected { background: var(--don-color); color: white; border-color: var(--don-color); }
+        .genre-tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; color: white; background: #9e9e9e; margin-right: 5px; }
+
+        #playScreen { position: relative; }
+        #progressBar { position: absolute; top: 0; left: 0; width: 100%; height: 12px; background: rgba(255,255,255,0.3); z-index: 300; border-bottom: 2px solid #333; }
+        #progressFill { width: 0%; height: 100%; background: #4caf50; transition: 0.1s; }
+        #pauseBtn { position: absolute; top: 25px; left: 20px; z-index: 300; background: rgba(0,0,0,0.6); color: white; border: 2px solid white; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        #pauseMenu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; color: white; }
+        
+        #judgeText, #aiJudgeText { position: absolute; left: 200px; transform: translateX(-50%); font-size: 40px; font-weight: bold; text-shadow: 2px 2px 0 #000; pointer-events: none; z-index: 200; opacity: 0; }
+        #judgeText { top: 120px; }
+        #aiJudgeText { top: 320px; }
+        .judge-ryo { color: #ffeb3b; }
+        .judge-ka { color: #ffffff; }
+        .judge-fuka { color: #9e9e9e; }
+        .judge-roll { color: #ffeb3b; font-size: 30px; }
+        .ani-pop { animation: judgePop 0.4s ease-out forwards; }
+        
+        #comboCounter, #aiComboCounter { position: absolute; left: 100px; color: #fff; font-weight: bold; z-index: 150; display: none; text-align: right; text-shadow: 2px 2px 2px #000; }
+        #comboCounter { top: 75px; }
+        #aiComboCounter { top: 275px; }
+        
+        #SongInfoArea { position:absolute; top:18px; right:30px; color:#333; text-align:right; z-index: 60; pointer-events: none;}
+        #ScoreArea { font-size: 48px; color: #333; font-weight: bold; margin-top: 5px; text-shadow: 1px 1px 0 #fff; }
+        #aiScoreArea { position:absolute; top:350px; right:30px; color:#ff4081; font-weight:bold; z-index: 60; font-size: 30px; display: none; text-align: right; }
+        #gogoText { position: absolute; left: 150px; transform: translateX(-50%); font-size: 28px; color: #ffeb3b; font-weight: bold; text-shadow: 2px 2px 0 #ff5722; z-index: 200; display: none; pointer-events: none; top: 75px; }
+        
+        #touchControls { position: absolute; bottom: 0; left: 0; width: 100%; height: 220px; display: flex; z-index: 100; border-top: 5px solid #333; }
+        .touch-btn { flex: 1; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 34px; font-weight: bold; text-shadow: 2px 2px 0 rgba(0,0,0,0.5); transition: background 0.05s; }
+        .btn-kat { background: #2b86af; }
+        .btn-don { background: #b72d5c; border-left: 2px solid #333; border-right: 2px solid #333; }
+        .btn-kat.active { background: var(--kat-color) !important; }
+        .btn-don.active { background: var(--don-color) !important; }
+
+        @keyframes judgePop { 0% { opacity: 0; transform: translate(-50%, 10px) scale(0.8); } 30% { opacity: 1; transform: translate(-50%, 0) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -20px) scale(1); } }
+        @keyframes gogoPop { 0% { transform: translateX(-50%) scale(0.5); opacity: 0; } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div id="scaleWrapper">
+    <div id="gameContainer">
+        <div id="titleBadge">ドンだーマスター</div>
+        <div id="titleScreen" class="screen">
+            <div class="logo" onclick="hiddenCommandMobile()">太鼓 of Gemini</div>
+            <button class="menu-btn" onclick="showSelect('normal')">演奏をはじめる</button>
+            <button class="menu-btn ai-btn" onclick="showSelect('ai')">AIバトル演奏</button>
+            <button class="menu-btn auto-btn" onclick="showSelect('auto')">オートモード</button>
+            <button class="menu-btn opt-btn" onclick="showOption()">オプション / 設定</button>
+        </div>
+
+        <div id="optionScreen" class="screen">
+            <h2 style="margin-top:0;">オプション / 設定</h2>
+            <div class="opt-container">
+                <div style="background:white; color:#333; padding:20px; border-radius:15px; text-align:center; width:300px;">
+                    <h3 style="margin-top:0;">背景色をえらぶ</h3>
+                    <div class="color-picker">
+                        <div class="color-dot" style="background:#f7e600;" onclick="setBG('#f7e600', '#e9de00')"></div>
+                        <div class="color-dot" style="background:#ff80ab;" onclick="setBG('#ff80ab', '#f06292')"></div>
+                        <div class="color-dot" style="background:#80d8ff;" onclick="setBG('#80d8ff', '#40c4ff')"></div>
+                        <div class="color-dot" style="background:#b9f6ca;" onclick="setBG('#b9f6ca', '#69f0ae')"></div>
+                        <div class="color-dot" style="background:#ea80fc;" onclick="setBG('#ea80fc', '#e040fb')"></div>
+                        <div class="color-dot" style="background:#424242;" onclick="setBG('#424242', '#212121')"></div>
+                    </div>
+                    <hr>
+                    <h3 style="margin-top:10px;">操作方法</h3>
+                    <p>ドン: <kbd>F</kbd> <kbd>J</kbd> / カッ: <kbd>D</kbd> <kbd>K</kbd></p>
+                    <button class="menu-btn" onclick="hideOption()" style="width:100%; min-width:auto; background:#4caf50;">とじる</button>
+                    <button class="menu-btn del-btn" onclick="resetData()" style="min-width:auto; width:100%;">全データ削除</button>
+                </div>
+                <div id="rankingBox">
+                    <h3 style="text-align:center; margin-top:0;">全国ランキング (TOP 10)</h3>
+                    <div id="rankingList"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="selectScreen" class="screen">
+            <h2 style="margin-top:0;">楽曲をえらぶ</h2>
+            <div class="selection-area">
+                <div id="songList"></div>
+                <div id="diffList">
+                    <div class="item diff-item" onclick="selectDiffUI(this, 'easy')">かんたん</div>
+                    <div class="item diff-item" onclick="selectDiffUI(this, 'normal')">ふつう</div>
+                    <div class="item diff-item" onclick="selectDiffUI(this, 'hard')">むずかしい</div>
+                    <div class="item diff-item selected" onclick="selectDiffUI(this, 'oni')">おに</div>
+                    <div class="item diff-item" onclick="selectDiffUI(this, 'oni_ura')" style="background:#333; color:white;">おに裏</div>
+                </div>
+            </div>
+            <div class="mod-group">
+                <button id="speedToggle" class="menu-btn" style="min-width:150px; background:#607d8b;" onclick="toggle('isDoubleSpeed')">倍速: OFF</button>
+                <button id="abekobeToggle" class="menu-btn" style="min-width:150px; background:#607d8b;" onclick="toggle('isAbekobe')">あべこべ: OFF</button>
+            </div>
+            <button class="menu-btn" onclick="startGame()">演奏開始！</button>
+            <button class="menu-btn" style="background:#9e9e9e;" onclick="location.reload()">タイトルへ</button>
+        </div>
+
+        <div id="playScreen" class="screen">
+            <div id="progressBar"><div id="progressFill"></div></div>
+            <div id="gogoText">ゴーゴータイム！</div>
+            <button id="pauseBtn" onclick="togglePause()">一時停止</button>
+            <div id="pauseMenu">
+                <h1 style="font-size:60px;">PAUSE</h1>
+                <button class="menu-btn" onclick="togglePause()">再開する</button>
+                <button class="menu-btn" style="background:#9e9e9e;" onclick="location.reload()">タイトルに戻る</button>
+            </div>
+            <div id="judgeText">良</div><div id="aiJudgeText">良</div>
+            <div id="comboCounter"><div id="comboNum" style="font-size:50px;">0</div>コンボ</div>
+            <div id="aiComboCounter"><div id="aiComboNum" style="font-size:50px;">0</div>AIコンボ</div>
+            <div id="SongInfoArea">
+                <span id="displayGenre" class="genre-tag"></span>
+                <span id="displayDiff" style="font-weight:bold; color:red; font-size:20px;"></span>
+                <div id="displayTitle" style="font-size:28px; font-weight:bold;"></div>
+                <div id="ScoreArea"><span id="scoreText">0</span></div>
+            </div>
+            <div id="aiScoreArea">AI SCORE: <span id="aiScoreText">0</span></div>
+            <canvas id="gameCanvas" width="1280" height="420"></canvas>
+            <div id="touchControls">
+                <div id="btn-k1" class="touch-btn btn-kat" ontouchstart="handleTouch('kat', 'L')">カッ</div>
+                <div id="btn-d1" class="touch-btn btn-don" ontouchstart="handleTouch('don', 'L')">ドン</div>
+                <div id="btn-d2" class="touch-btn btn-don" ontouchstart="handleTouch('don', 'R')">ドン</div>
+                <div id="btn-k2" class="touch-btn btn-kat" ontouchstart="handleTouch('kat', 'R')">カッ</div>
+            </div>
+        </div>
+
+        <div id="resultScreen" class="screen">
+            <h1 id="resTitle" style="font-size:60px;">成果発表</h1>
+            <div id="resStats" style="font-size:24px; line-height:1.6; background:white; padding:30px; border-radius:15px; border:3px solid #333; text-align:center; color:#333;"></div>
+            <button class="menu-btn" onclick="location.reload()" style="margin-top:20px;">タイトルへ</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// 画面スケーリングの自動計算
+function adjustScale() {
+    const wrapper = document.getElementById('scaleWrapper');
+    const winW = window.innerWidth;
+    const winH = window.innerHeight;
+    const scale = Math.min(winW / 1280, winH / 720);
+    wrapper.style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', adjustScale);
+window.addEventListener('load', adjustScale);
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const TYPE_DON = 'red', TYPE_KAT = 'blue', TYPE_ROLL = '#ffeb3b', TARGET_X = 200;
+
+let gameState = { score: 0, combo: 0, maxCombo: 0, isPlaying: false, frameCount: 0, isPaused: false, mode: 'normal', isGogo: false, gogoFlashTimer: 0 };
+let aiState = { score: 0, combo: 0, ryo: 0, ka: 0, fuka: 0 };
+let mods = { isAuto: false, isDoubleSpeed: false, isAbekobe: false };
+let hitEffect = { active: false, color: '', timer: 0 };
+let aiHitEffect = { active: false, color: '', timer: 0 };
+let commandCount = 0;
+
+let songListData = [
+    { name: '毎日がドンダフル', genre: 'ナムコオリジナル', speed: 10 },
+    { name: '夏祭り', genre: 'ポップス', speed: 10 },
+    { name: '千本桜', genre: 'ボーカロイド曲', speed: 11 },
+    { name: 'さいたま2000', genre: 'ナムコオリジナル', speed: 13 },
+    { name: 'ナイトメア・サバイバー', genre: 'ナムコオリジナル', speed: 14 },
+    { name: 'エンジェルドリーム', genre: 'ナムコオリジナル', speed: 13 },
+    { name: '脳漿炸裂ガール', genre: 'ボーカロイド曲', speed: 12 },
+    { name: 'ドンカマ2000', genre: 'ナムコオリジナル', speed: 15 },
+    { name: '百花繚乱', genre: 'ナムコオリジナル', speed: 14 },
+    { name: '幽玄ノ乱', genre: 'ナムコオリジナル', speed: 18 }
+];
+
+function setBG(main, sub) {
+    document.documentElement.style.setProperty('--bg-main', main);
+    document.documentElement.style.setProperty('--bg-sub', sub);
+    localStorage.setItem('taiko_bg_main', main);
+    localStorage.setItem('taiko_bg_sub', sub);
+}
+
+function checkGeminiUnlock() {
+    const isPermanent = localStorage.getItem('gemini_master_unlocked') === 'true';
+    const isSession = sessionStorage.getItem('gemini_session_unlock') === 'true';
+    if((isPermanent || isSession) && !songListData.find(s => s.name === 'ジェミニマスター')) {
+        songListData.push({ name: 'ジェミニマスター', genre: 'ジェミニオリジナル', speed: 22 });
+    }
+}
+
+let selectedSong = songListData[0];
+let selectedDiff = "oni";
+let notes = [], currentChart = [], chartIndex = 0;
+
+window.onload = () => {
+    adjustScale();
+    checkGeminiUnlock();
+    if(localStorage.getItem('taiko_donmaster') === 'true') document.getElementById('titleBadge').style.display = 'block';
+    const savedMain = localStorage.getItem('taiko_bg_main');
+    const savedSub = localStorage.getItem('taiko_bg_sub');
+    if(savedMain && savedSub) setBG(savedMain, savedSub);
+    updateRankingDisplay();
+};
+
+window.addEventListener('keydown', e => { 
+    if(document.getElementById('titleScreen').style.display !== 'none') {
+        if(e.key.toLowerCase() === 'k') { commandCount++; if(commandCount >= 10) unlockGemini(true); }
+    }
+    if(e.key === 'Escape') togglePause();
+    if(gameState.isPaused) return;
+    const k = e.key.toLowerCase(); 
+    if(k==='f') checkHit(TYPE_DON, 'L'); 
+    if(k==='j') checkHit(TYPE_DON, 'R');
+    if(k==='d') checkHit(TYPE_KAT, 'L');
+    if(k==='k') checkHit(TYPE_KAT, 'R');
+});
+
+function hiddenCommandMobile() { commandCount++; if(commandCount >= 7) unlockGemini(true); }
+function unlockGemini(isSessionOnly) {
+    if(isSessionOnly) sessionStorage.setItem('gemini_session_unlock', 'true');
+    checkGeminiUnlock();
+    alert("隠し曲「ジェミニマスター」が出現！");
+    commandCount = 0;
+}
+function resetData() { if(confirm("全てのランキングと解禁データを削除しますか？")) { localStorage.clear(); sessionStorage.clear(); location.reload(); } }
+function showSelect(mode) { gameState.mode = mode; mods.isAuto = (mode === 'auto'); document.getElementById('titleScreen').style.display = 'none'; document.getElementById('selectScreen').style.display = 'flex'; renderSongList(); }
+function renderSongList() { const list = document.getElementById('songList'); list.innerHTML = songListData.map((s, i) => `<div class="item song-item ${selectedSong.name === s.name?'selected':''}" onclick="selectSongUI(this, ${i})"><span class="genre-tag">${s.genre}</span>${s.name}</div>`).join(''); }
+function selectSongUI(el, i) { document.querySelectorAll('.song-item').forEach(x => x.classList.remove('selected')); el.classList.add('selected'); selectedSong = songListData[i]; }
+function selectDiffUI(el, type) { document.querySelectorAll('.diff-item').forEach(x => x.classList.remove('selected')); el.classList.add('selected'); selectedDiff = type; }
+function showOption() { document.getElementById('optionScreen').style.display = 'flex'; updateRankingDisplay(); }
+function hideOption() { document.getElementById('optionScreen').style.display = 'none'; }
+function toggle(key) { mods[key] = !mods[key]; const b = document.getElementById(key==='isDoubleSpeed'?'speedToggle':'abekobeToggle'); b.innerText = `${key==='isDoubleSpeed'?'倍速':'あべこべ'}: ${mods[key]?'ON':'OFF'}`; }
+function togglePause() { if(!gameState.isPlaying) return; gameState.isPaused = !gameState.isPaused; document.getElementById('pauseMenu').style.display = gameState.isPaused ? 'flex' : 'none'; }
+
+function postToX(score) {
+    const text = encodeURIComponent(`スコア：${score}点\n#Gemini #AI #太鼓のGemini`);
+    const url = `https://twitter.com/intent/tweet?text=${text}`;
+    window.open(url, '_blank');
+}
+
+function generateChart() {
+    const chart = [];
+    const name = selectedSong.name;
+    const isUra = selectedDiff === 'oni_ura';
+    let duration = (name === 'ジェミニマスター' || name === '幽玄ノ乱' || name === 'ドンカマ2000') ? 9800 : 5000;
+    let baseSpd = selectedSong.speed * (mods.isDoubleSpeed ? 2 : 1);
+    let interval = {easy:100, normal:60, hard:40, oni:25, oni_ura:12}[selectedDiff];
+    
+    for (let t = 150; t < duration; t += interval) {
+        let spd = baseSpd;
+        let type = (Math.random() > 0.5) ? TYPE_DON : TYPE_KAT;
+        if (name === '脳漿炸裂ガール') { t += (Math.random() * 10 - 5); }
+        if (name === 'ドンカマ2000') { spd = baseSpd * (0.5 + Math.random() * 2.5); }
+        if (name === 'ジェミニマスター' && isUra) {
+            let accel = 1 + (t / duration) * 1.5;
+            let multiSpd = baseSpd * accel * (0.3 + Math.abs(Math.sin(t/30))*1.2);
+            for(let j=0; j<6; j++) { chart.push({t: t + (j*2.5), type: (Math.random()>0.4?TYPE_DON:TYPE_KAT), spd: (j%2===0?multiSpd*4.5:multiSpd)}); }
+            t += 18; continue;
+        }
+        if (isUra || selectedDiff === 'oni') {
+            if (t > 2000) spd *= 1.3;
+            if (t > 7000) spd *= 1.7;
+        }
+        let rand = Math.random();
+        if (rand < 0.05) { chart.push({t: t, type: TYPE_ROLL, spd: spd, length: 250}); t += 15; } 
+        else { if (mods.isAbekobe) type = (type === TYPE_DON) ? TYPE_KAT : TYPE_DON; chart.push({t: t, type: type, spd: spd}); }
+    }
+    return chart;
+}
+
+function startGame() {
+    document.getElementById('selectScreen').style.display = 'none';
+    document.getElementById('playScreen').style.display = 'flex';
+    document.getElementById('aiScoreArea').style.display = (gameState.mode === 'ai') ? 'block' : 'none';
+    document.getElementById('displayTitle').innerText = selectedSong.name;
+    document.getElementById('displayGenre').innerText = selectedSong.genre;
+    document.getElementById('displayDiff').innerText = " [" + selectedDiff.toUpperCase() + "]";
+    gameState = { score: 0, combo: 0, maxCombo: 0, isPlaying: true, frameCount: 0, isPaused: false, mode: gameState.mode, isGogo: false, gogoFlashTimer: 0 };
+    aiState = { score: 0, combo: 0, ryo: 0, ka: 0, fuka: 0 };
+    notes = []; chartIndex = 0;
+    currentChart = generateChart();
+    requestAnimationFrame(gameLoop);
+}
+
+function update() {
+    if(gameState.isPaused) return;
+    gameState.frameCount++;
+    if (currentChart.length > 0) {
+        const lastT = currentChart[currentChart.length - 1].t;
+        const progress = (gameState.frameCount / lastT) * 100;
+        document.getElementById('progressFill').style.width = Math.min(progress, 100) + "%";
+        if (progress >= 50 && !gameState.isGogo) {
+            gameState.isGogo = true; gameState.gogoFlashTimer = 15;
+            document.getElementById('gogoText').style.display = 'block';
+            document.getElementById('gogoText').style.animation = 'gogoPop 0.5s forwards';
+        }
+    }
+    if (chartIndex < currentChart.length && gameState.frameCount >= currentChart[chartIndex].t) {
+        const c = currentChart[chartIndex];
+        notes.push({ x: 1300, type: c.type, hit: false, aiHit: false, spd: c.spd, judged: false, aiJudged: false, length: c.length || 0 });
+        chartIndex++;
+    }
+    if (chartIndex >= currentChart.length && notes.length === 0) endGame();
+    for (let i = notes.length - 1; i >= 0; i--) {
+        const n = notes[i]; n.x -= n.spd;
+        if (mods.isAuto) {
+            if (n.type === TYPE_ROLL && n.x <= TARGET_X + n.length && n.x >= TARGET_X - 50) { if(gameState.frameCount % 4 === 0) { applyJudge('roll', n, false); autoFlash(TYPE_DON); } }
+            if (n.type !== TYPE_ROLL && !n.hit && n.x <= TARGET_X) { applyJudge('ryo', n, false); autoFlash(n.type); }
+        }
+        if (!mods.isAuto && n.type !== TYPE_ROLL && !n.judged && n.x < TARGET_X - 80) applyJudge('fuka', n, false);
+        if (gameState.mode === 'ai' && !n.aiJudged) {
+            if(n.type === TYPE_ROLL) {
+                if(n.x <= TARGET_X + n.length && n.x >= TARGET_X && gameState.frameCount % 5 === 0) { applyJudge('roll', n, true); autoFlash(TYPE_DON); }
+                if(n.x < TARGET_X) n.aiJudged = true;
+            } else if(n.x <= TARGET_X) {
+                let r = Math.random();
+                let judge = r > 0.08 ? 'ryo' : (r > 0.03 ? 'ka' : 'fuka');
+                applyJudge(judge, n, true); if(judge !== 'fuka') autoFlash(n.type);
+            }
+        }
+        // はみ出し防止のため、少し手前（-150）で配列から削除
+        if (n.x < -150 - (n.length || 0)) notes.splice(i, 1);
+    }
+    if(hitEffect.timer > 0) hitEffect.timer--;
+    if(aiHitEffect.timer > 0) aiHitEffect.timer--;
+    if(gameState.gogoFlashTimer > 0) gameState.gogoFlashTimer--;
+}
+
+function autoFlash(type) {
+    const side = (gameState.frameCount % 10 < 5) ? 'L' : 'R';
+    singleFlash(type, side);
+}
+
+function singleFlash(type, side) {
+    let id = (type === TYPE_DON) ? ((side === 'L') ? 'btn-d1' : 'btn-d2') : ((side === 'L') ? 'btn-k1' : 'btn-k2');
+    const el = document.getElementById(id);
+    if(el) { el.classList.add('active'); setTimeout(() => el.classList.remove('active'), 70); }
+}
+
+function applyJudge(type, n, isAI) {
+    const target = isAI ? aiState : gameState;
+    const judgeEl = document.getElementById(isAI ? 'aiJudgeText' : 'judgeText');
+    const multiplier = gameState.isGogo ? 1.2 : 1.0;
+    if(type === 'roll') { target.score += Math.round(100 * multiplier); judgeEl.innerText = '連打!!'; judgeEl.className = 'judge-roll'; }
+    else {
+        if(isAI) { n.aiJudged = true; if(type !== 'fuka') { n.aiHit = true; aiHitEffect = {active:true, color:n.type, timer:4}; } }
+        else { n.judged = true; if(type !== 'fuka') { n.hit = true; hitEffect = {active:true, color:n.type, timer:4}; } }
+        judgeEl.innerText = {ryo:'良', ka:'可', fuka:'不可'}[type]; judgeEl.className = 'judge-' + type;
+    }
+    judgeEl.classList.remove('ani-pop'); void judgeEl.offsetWidth; judgeEl.classList.add('ani-pop');
+    if (type === 'fuka') { target.fuka++; target.combo = 0; }
+    else if (type !== 'roll') { target.score += Math.round(((type === 'ryo') ? 1000 : 500) * multiplier); target.combo++; }
+    if(!isAI && target.combo > target.maxCombo) target.maxCombo = target.combo;
+    document.getElementById(isAI ? 'aiScoreText' : 'scoreText').innerText = target.score;
+    const cCounter = document.getElementById(isAI ? 'aiComboCounter' : 'comboCounter');
+    if(target.combo >= 10) { cCounter.style.display = 'block'; document.getElementById(isAI ? 'aiComboNum' : 'comboNum').innerText = target.combo; } else cCounter.style.display = 'none';
+}
+
+function checkHit(type, side) {
+    if(!gameState.isPlaying || mods.isAuto || gameState.isPaused) return;
+    hitEffect = {active:true, color:type, timer:4};
+    singleFlash(type, side);
+    const rollNote = notes.find(x => x.type === TYPE_ROLL && x.x <= TARGET_X + x.length && x.x >= TARGET_X - 50);
+    if(rollNote) { applyJudge('roll', rollNote, false); return; }
+    const n = notes.find(x => !x.judged && x.type !== TYPE_ROLL && Math.abs(x.x - TARGET_X) < 100 && x.type === type);
+    if(n) { const d = Math.abs(n.x - TARGET_X); if(d < 25) applyJudge('ryo', n, false); else if(d < 60) applyJudge('ka', n, false); else applyJudge('fuka', n, false); }
+}
+function handleTouch(t, side) { checkHit(t==='don'?TYPE_DON:TYPE_KAT, side); if(navigator.vibrate) navigator.vibrate(20); }
+
+function draw() {
+    ctx.clearRect(0,0,1280,420);
+    ctx.fillStyle='#333'; ctx.fillRect(0,60,1280,80);
+    ctx.strokeStyle='white'; ctx.lineWidth = gameState.gogoFlashTimer > 0 ? 10 : 4;
+    ctx.beginPath(); ctx.arc(TARGET_X,100,45 + (gameState.gogoFlashTimer),0,Math.PI*2); ctx.stroke();
+    if(gameState.mode === 'ai') { ctx.fillStyle='#333'; ctx.fillRect(0,260,1280,80); ctx.strokeStyle='white'; ctx.beginPath(); ctx.arc(TARGET_X,300,45,0,Math.PI*2); ctx.stroke(); }
+    notes.forEach(n => {
+        if(n.type === TYPE_ROLL) {
+            ctx.fillStyle = TYPE_ROLL; ctx.fillRect(n.x, 70, n.length, 60);
+            ctx.beginPath(); ctx.arc(n.x, 100, 35, 0, Math.PI*2); ctx.fill();
+            if(gameState.mode === 'ai') { ctx.fillRect(n.x, 270, n.length, 60); ctx.beginPath(); ctx.arc(n.x, 300, 35, 0, Math.PI*2); ctx.fill(); }
+        } else {
+            if(!n.hit) { ctx.fillStyle=n.type; ctx.beginPath(); ctx.arc(n.x,100,35,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='#fff'; ctx.stroke(); }
+            if(gameState.mode === 'ai' && !n.aiHit) { ctx.fillStyle=n.type; ctx.beginPath(); ctx.arc(n.x,300,35,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='#fff'; ctx.stroke(); }
+        }
+    });
+}
+function gameLoop() { if(gameState.isPlaying) { update(); draw(); requestAnimationFrame(gameLoop); } }
+function endGame() {
+    gameState.isPlaying = false;
+    setTimeout(() => {
+        document.getElementById('playScreen').style.display = 'none';
+        document.getElementById('resultScreen').style.display = 'flex';
+        let resHTML = `SCORE: ${gameState.score}<br>MAX COMBO: ${gameState.maxCombo}<br><br>`;
+        resHTML += `<button class="post-btn" style="padding:12px 24px; font-size:18px;" onclick="postToX(${gameState.score})">ポストする</button>`;
+        document.getElementById('resStats').innerHTML = resHTML;
+        if(!mods.isAuto && gameState.mode === 'normal') saveScore(gameState.score, selectedSong.name);
+    }, 1000);
+}
+function saveScore(s, n) { let r = JSON.parse(localStorage.getItem('taiko_rank_v30') || '[]'); r.push({score:s, song:n, date:new Date().toLocaleDateString()}); r.sort((a,b)=>b.score-a.score); localStorage.setItem('taiko_rank_v30', JSON.stringify(r.slice(0,10))); }
+function updateRankingDisplay() { const r = JSON.parse(localStorage.getItem('taiko_rank_v30') || '[]'); const l = document.getElementById('rankingList'); l.innerHTML = r.length ? r.map((x,i)=>`<div class="rank-item"><span>${i+1}. ${x.score} (${x.song})</span><button class="post-btn" onclick="postToX(${x.score})">ポスト</button></div>`).join('') : '<p>記録なし</p>'; }
+</script>
+</body>
+</html>
